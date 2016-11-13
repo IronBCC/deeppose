@@ -6,9 +6,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import numpy
 from chainer import reporter
 
 import chainer
+from chainer.utils import type_check
 
 
 class MeanSquaredError(chainer.Function):
@@ -22,7 +25,7 @@ class MeanSquaredError(chainer.Function):
     """
 
     def check_type_forward(self, in_types):
-        type_check.expect(in_types.size() == 2)
+        type_check.expect(in_types.size() == 3)
         type_check.expect(
             in_types[0].dtype == numpy.float32,
             in_types[1].dtype == numpy.float32,
