@@ -4,7 +4,7 @@
 CHAINER_TYPE_CHECK=0 \
 python scripts/train.py \
 --model models/AlexNet.py \
---gpus 8 \
+--gpus -1 \
 --epoch 100 \
 --batchsize 128 \
 --snapshot 10 \
