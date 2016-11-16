@@ -25,6 +25,8 @@ import sys
 import tempfile
 import time
 
+from transform import Transform
+
 
 def create_result_dir(model_path, resume_model):
     if not os.path.exists('results'):

@@ -6,9 +6,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import tempfile
+
 from chainer import cuda
 from chainer import serializers
 from chainer import Variable
+
+import cmd_options
 from transform import Transform
 
 import argparse
@@ -19,6 +24,8 @@ import numpy as np
 import os
 import re
 import sys
+
+import loss
 
 
 def cropping(img, joints, min_dim):
@@ -94,7 +101,11 @@ def load_model(args):
     model = imp.load_source(model_name, args.model)
     model = getattr(model, model_name)
     model = model(args.joint_num)
+
+    model = loss.PoseEstimationError(model)
+
     serializers.load_npz(args.param, model)
+    model = model.predictor
     model.train = False
 
     return model
@@ -103,6 +114,7 @@ def load_model(args):
 def load_data(trans, args, x):
     c = args.channel
     s = args.size
+    # s = 220
     d = args.joint_num * 2
 
     # data augmentation
@@ -138,6 +150,35 @@ def create_tiled_image(perm, out_dir, result_dir, epoch, suffix, N=25):
     cv.imwrite('%s/test_%d_tiled_%s.jpg' % (result_dir, epoch, suffix), canvas)
 
 
+def draw_joints(image, joints, prefix, ignore_joints):
+    if image.shape[2] != 3:
+        _image = image.transpose(1, 2, 0).copy()
+    else:
+        _image = image.copy()
+    # if joints.ndim == 1:
+    #     joints = np.array(list(zip(joints[0::2], joints[1::2])))
+    # if ignore_joints.ndim == 1:
+    #     ignore_joints = np.array(
+    #         list(zip(ignore_joints[0::2], ignore_joints[1::2])))
+    for i, (x, y) in enumerate(joints):
+        if ignore_joints is not None \
+                and (ignore_joints[i][0] == 0 or ignore_joints[i][1] == 0):
+            continue
+        cv.circle(_image, (int(x), int(y)), 2, (255, 0, 0), 3)
+        # cv.putText(
+        #     _image, str(i), (int(x), int(y)), cv.FONT_HERSHEY_SIMPLEX,
+        #     1.0, (255, 255, 255), 3)
+        # cv.putText(
+        #     _image, str(i), (int(x), int(y)), cv.FONT_HERSHEY_SIMPLEX,
+        #     1.0, (0, 0, 0), 1)
+    return _image
+    # _, fn_img = tempfile.mkstemp()
+    # basename = os.path.basename(fn_img)
+    # fn_img = fn_img.replace(basename, prefix + basename)
+    # fn_img = fn_img + '.png'
+    # cv.imwrite(fn_img, _image)
+
+
 def test(args):
     # test data
     test_fn = '%s/test_joints.csv' % args.datadir
@@ -161,6 +202,15 @@ def test(args):
 
     mean_error = 0.0
     N = len(test_dl)
+
+    trans = Transform(args)
+    # while True:
+    #     x = x_queue.get()
+    #     if x is None:
+    #         break
+    #     x, t = trans.transform(x.split(','), datadir, fname_index, joint_index)
+    #     o_queue.put((x.transpose((2, 0, 1)), t))
+
     for i in range(0, N, args.batchsize):
         lines = test_dl[i:i + args.batchsize]
         input_data, labels = load_data(trans, args, lines)
@@ -174,14 +224,14 @@ def test(args):
 
         x = Variable(input_data, volatile=True)
         t = Variable(labels, volatile=True)
-        model(x, t)
+        preds = model(x)
 
-        if args.gpu >= 0:
-            preds = cuda.to_cpu(model.pred.data)
-            input_data = cuda.to_cpu(input_data)
-            labels = cuda.to_cpu(labels)
-        else:
-            preds = model.pred.data
+        # if args.gpu >= 0:
+        #     preds = cuda.to_cpu(model.pred.data)
+        #     input_data = cuda.to_cpu(input_data)
+        #     labels = cuda.to_cpu(labels)
+        # else:
+        #     preds = model.pred.data
 
         for n, line in enumerate(lines):
             img_fn = line.split(',')[args.fname_index]
@@ -190,35 +240,35 @@ def test(args):
             img_pred, pred = trans.revert(img, pred)
 
             # turn label data into image coordinates
-            label = labels[n]
-            img_label, label = trans.revert(img, label)
+            # label = labels[n]
+            # img_label, label = trans.revert(img, label)
 
             # calc mean_error
-            error = np.linalg.norm(pred - label) / len(pred)
-            mean_error += error
+            # error = np.linalg.norm(pred - label) / len(pred)
+            # mean_error += error
 
             # create pred, label tuples
             img_pred = np.array(img_pred.copy())
-            img_label = np.array(img_label.copy())
+            # img_label = np.array(img_label.copy())
             pred = [tuple(p) for p in pred]
-            label = [tuple(p) for p in label]
+            # label = [tuple(p) for p in label]
 
             # all limbs
-            img_label = draw_joints(
-                img_label, label, args.draw_limb, args.text_scale)
+            # img_label = draw_joints(
+            #     img_label, label, args.draw_limb, args.text_scale)
             img_pred = draw_joints(
-                img_pred, pred, args.draw_limb, args.text_scale)
+                img_pred, pred, "pref_", None) # args.draw_limb, args.text_scale)
 
-            msg = '{:5}/{:5} {}\terror:{}\tmean_error:{}'.format(
-                i + n, N, img_fn, error, mean_error / (i + n + 1))
-            print(msg, file=fp)
-            print(msg)
+            # msg = '{:5}/{:5} {}\terror:{}\tmean_error:{}'.format(
+            #     i + n, N, img_fn, error, mean_error / (i + n + 1))
+            # print(msg, file=fp)
+            # print(msg)
 
             fn, ext = os.path.splitext(img_fn)
             tr_fn = '%s/%d-%d_%s_pred%s' % (out_dir, i, n, fn, ext)
-            la_fn = '%s/%d-%d_%s_label%s' % (out_dir, i, n, fn, ext)
+            # la_fn = '%s/%d-%d_%s_label%s' % (out_dir, i, n, fn, ext)
             cv.imwrite(tr_fn, img_pred)
-            cv.imwrite(la_fn, img_label)
+            # cv.imwrite(la_fn, img_label)
 
 
 def tile(args):
@@ -240,42 +290,58 @@ if __name__ == '__main__':
     sys.path.append('tests')
     sys.path.append('models')
 
-    from test_flic_dataset import draw_joints
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str,
-                        help='model definition file in models dir')
-    parser.add_argument('--param', type=str,
-                        help='trained parameters file in result dir')
-    parser.add_argument('--batchsize', type=int, default=128)
-    parser.add_argument('--gpu', type=int, default=0)
-    parser.add_argument('--datadir', type=str, default='data/FLIC-full')
-    parser.add_argument('--mode', type=str, default='test',
-                        choices=['test', 'tile'],
-                        help='test or create tiled image')
-    parser.add_argument('--n_imgs', type=int, default=9,
-                        help='how many images will be tiled')
-    parser.add_argument('--resize', type=int, default=-1,
-                        help='resize the results of tiling')
-    parser.add_argument('--seed', type=int, default=9,
-                        help='random seed to select images to be tiled')
-    parser.add_argument('--draw_limb', type=bool, default=True,
-                        help='whether draw limb line to visualize')
-    parser.add_argument('--text_scale', type=float, default=1.0,
-                        help='text scale when drawing indices of joints')
-    args = parser.parse_args()
+    args = cmd_options.get_arguments()
+    #
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('--model', type=str,
+    #                     help='model definition file in models dir')
+    # parser.add_argument('--param', type=str,
+    #                     help='trained parameters file in result dir')
+    # parser.add_argument('--batchsize', type=int, default=128)
+    # parser.add_argument('--gpu', type=int, default=0)
+    # parser.add_argument('--datadir', type=str, default='data/FLIC-full')
+    # parser.add_argument('--mode', type=str, default='test',
+    #                     choices=['test', 'tile'],
+    #                     help='test or create tiled image')
+    # parser.add_argument('--n_imgs', type=int, default=9,
+    #                     help='how many images will be tiled')
+    # parser.add_argument('--resize', type=int, default=-1,
+    #                     help='resize the results of tiling')
+    # parser.add_argument('--seed', type=int, default=9,
+    #                     help='random seed to select images to be tiled')
+    # parser.add_argument('--draw_limb', type=bool, default=True,
+    #                     help='whether draw limb line to visualize')
+    # parser.add_argument('--text_scale', type=float, default=1.0,
+    #                     help='text scale when drawing indices of joints')
+    # args = parser.parse_args()
 
     result_dir = os.path.dirname(args.param)
-    log_fn = grep.grep('{}/log.txt'.format(result_dir))[0]
-    for line in open(log_fn):
-        if 'Namespace' in line:
-            args.joint_num = int(
-                re.search('joint_num=([0-9]+)', line).groups()[0])
-            args.fname_index = int(
-                re.search('fname_index=([0-9]+)', line).groups()[0])
-            args.joint_index = int(
-                re.search('joint_index=([0-9]+)', line).groups()[0])
-            break
+    # Namespace(adam_alpha=0.001, adam_beta1=0.9, adam_beta2=0.999, adam_eps=1e-08, base_zoom=1.5, batchsize=128,
+    #           channel=3, coord_normalize=True, epoch=2, fliplr=True, fname_index=0, gcn=True, gpus='-1',
+    #           ignore_label=-1, im_size=220, img_dir='/Users/ironbcc/startup/python/deeppose/data/FLIC-full/images',
+    #           joint_index=1, lr=0.01, lr_decay_freq=10, lr_decay_ratio=0.1, min_dim=0,
+    #           model='/Users/ironbcc/startup/python/deeppose/models/AlexNet.py', n_joints=7, opt='Adam',
+    #           resume_model=None, resume_opt=None, resume_param=None, rotate=True, rotate_range=10, seed=1701,
+    #           show_log_iter=10, snapshot=1, symmetric_joints='[[2, 4], [1, 5], [0, 6]]',
+    #           test_csv_fn='/Users/ironbcc/startup/python/deeppose/data/FLIC-full/test_joints.csv', test_freq=10,
+    #           train_csv_fn='/Users/ironbcc/startup/python/deeppose/data/FLIC-full/train_joints.csv', translate=True,
+    #           translate_range=5, valid_freq=5, weight_decay=0.0005, zoom=True, zoom_range=0.2)
+
+    args.joint_index = 1
+    args.fname_index = 0
+    args.joint_num = 7
+
+    # log_fn = grep.grep('{}/log.txt'.format(result_dir))[0]
+    # for line in open(log_fn):
+    #     if 'Namespace' in line:
+    #         args.joint_num = int(
+    #             re.search('joint_num=([0-9]+)', line).groups()[0])
+    #         args.fname_index = int(
+    #             re.search('fname_index=([0-9]+)', line).groups()[0])
+    #         args.joint_index = int(
+    #             re.search('joint_index=([0-9]+)', line).groups()[0])
+    #         break
 
     if args.mode == 'test':
         test(args)

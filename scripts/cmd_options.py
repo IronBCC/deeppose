@@ -21,9 +21,16 @@ def get_arguments():
     parser.add_argument('--test_freq', type=int, default=10)
     parser.add_argument('--seed', type=int, default=1701)
     parser.add_argument('--ignore_label', type=float, default=-1)
+    parser.add_argument('--mode', type=str, default='test',
+                                            choices=['test', 'tile'],
+                                            help='test or create tiled image')
+    parser.add_argument('--param', type=str,
+                        help='trained parameters file in result dir')
+    parser.add_argument('--datadir', type=str, default='data/FLIC-full')
     parser.add_argument(
         '--model', type=str, default='models/AlexNet_flic.py',
         help='Model definition file in models dir')
+    parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument(
         '--gpus', type=str, default='0',
         help='Comma-separated GPU IDs (e.g., "0,1,2")')
@@ -46,6 +53,9 @@ def get_arguments():
     # Data argumentation settings
     parser.add_argument(
         '--im_size', type=int, default=220,
+        help='Resize input image into this big')
+    parser.add_argument(
+        '--size', type=int, default=220,
         help='Resize input image into this big')
     parser.add_argument(
         '--fliplr', action='store_true', default=False,
