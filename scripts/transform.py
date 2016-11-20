@@ -53,6 +53,14 @@ class Transform(object):
 
         return self.img, self.joints
 
+    def transformImage(self, image, resize = 220):
+        if(resize > 0) :
+            image = cv.resize(image, (resize, resize),
+            interpolation=cv.INTER_NEAREST)
+
+        return image
+
+
     def cropping(self):
         # image cropping
         joints = self.joints.reshape((len(self.joints) // 2, 2))
