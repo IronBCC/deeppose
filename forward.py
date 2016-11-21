@@ -53,17 +53,16 @@ def img_preprocessing(orig_img, pixel_means, max_size=220, scale=220):
 
 
 def revert(img, joints):
-    c, h, w = img.shape
+    h, w, c = img.shape
     center_pt = np.array([w / 2, h / 2])
 
-    # joints = np.array(zip(pred[0::2].data, pred[1::2].data))  # x,y order
-    # np.array(list(zip(pred[0::2], pred[1::2])))
-    # joints[:, 0] *= w / 2
-    # joints[:, 1] *= h / 2
-    joints *= w / 2
-    joints += h / 2
-    # joints += center_pt
-    # joints = joints.astype(np.int32)
+    joints = np.array(zip(joints[0::2].data, joints[1::2].data))  # x,y order
+    joints[:, 0] *= w / 2
+    joints[:, 1] *= h / 2
+    # joints *= w / 2
+    # joints += h / 2
+    joints += center_pt
+    joints = joints.astype(np.int32)
 
     # if self.args.gcn:
     #     img -= img.min()
@@ -85,19 +84,17 @@ def draw_joints(image, joints, ignore_joints):
     # if ignore_joints.ndim == 1:
     #     ignore_joints = np.array(
     #         list(zip(ignore_joints[0::2], ignore_joints[1::2])))
-    for subarr in joints.data:
-        print subarr
-        for (x, y) in enumerate(subarr):
-            # if ignore_joints is not None \
-            #         and (ignore_joints[i][0] == 0 or ignore_joints[i][1] == 0):
-            #     continue
-            cv.circle(_image, (int(x), int(y)), 2, (255, 0, 0), 3)
-            # cv.putText(
-            #     _image, str(i), (int(x), int(y)), cv.FONT_HERSHEY_SIMPLEX,
-            #     1.0, (255, 255, 255), 3)
-            # cv.putText(
-            #     _image, str(i), (int(x), int(y)), cv.FONT_HERSHEY_SIMPLEX,
-            #     1.0, (0, 0, 0), 1)
+    for point in joints:
+        # if ignore_joints is not None \
+        #         and (ignore_joints[i][0] == 0 or ignore_joints[i][1] == 0):
+        #     continue
+        cv.circle(_image, (point[0], point[1]), 6, (255, 0, 0), 3)
+        # cv.putText(
+        #     _image, str(i), (int(x), int(y)), cv.FONT_HERSHEY_SIMPLEX,
+        #     1.0, (255, 255, 255), 3)
+        # cv.putText(
+        #     _image, str(i), (int(x), int(y)), cv.FONT_HERSHEY_SIMPLEX,
+        #     1.0, (0, 0, 0), 1)
     return _image
     # _, fn_img = tempfile.mkstemp()
     # basename = os.path.basename(fn_img)
@@ -134,7 +131,7 @@ def transformImage(image, resize=220):
         image = cv.resize(image, (resize, resize),
                           interpolation=cv.INTER_NEAREST)
 
-    return image.transpose([2, 0, 1]).astype(np.float32)
+    return image.transpose((2, 0, 1)).astype(np.float32)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -177,16 +174,15 @@ if __name__ == '__main__':
 
         start = time.clock()
         bbox_pred = model(img)
+        bbox_pred = bbox_pred[0]
         print "recognition = ", (time.clock() - start)
 
         if args.gpu >= 0:
             # cls_score = chainer.cuda.cupy.asnumpy(cls_score)
             bbox_pred = chainer.cuda.cupy.asnumpy(bbox_pred)
 
-        img = img[0]
-        img, bbox_pred = revert(img, bbox_pred)
-        img = img.data
-        result = draw_joints(img, bbox_pred, None)
+        img, bbox_pred = revert(orig_image, bbox_pred)
+        result = draw_joints(orig_image, bbox_pred, None)
         # result = draw_result(orig_image, im_scale, cls_score, bbox_pred,
         #                      args.nms_thresh, args.conf)
         # print('%d (%d) found' % (len(found_filtered), len(found)))

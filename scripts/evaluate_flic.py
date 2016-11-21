@@ -223,7 +223,7 @@ def test(args):
             labels = labels.astype(np.float32)
 
         x = Variable(input_data, volatile=True)
-        t = Variable(labels, volatile=True)
+        # t = Variable(labels, volatile=True)
         preds = model(x)
 
         # if args.gpu >= 0:
