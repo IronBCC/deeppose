@@ -130,7 +130,7 @@ class Transform(object):
     def revert(self, img, pred):
         h, w, c = img.shape
         center_pt = np.array([w / 2, h / 2])
-        joints = np.array(zip(pred[0::2].data, pred[1::2].data)) # x,y order
+        joints = np.array(list(zip(pred[0::2].data, pred[1::2].data))) # x,y order
         # np.array(list(zip(pred[0::2], pred[1::2])))
         joints[:, 0] *= w / 2
         joints[:, 1] *= h / 2

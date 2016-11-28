@@ -28,7 +28,7 @@ def get_arguments():
                         help='trained parameters file in result dir')
     parser.add_argument('--datadir', type=str, default='data/FLIC-full')
     parser.add_argument(
-        '--model', type=str, default='models/AlexNet_flic.py',
+        '--model', type=str, default='models/AlexNet.py',
         help='Model definition file in models dir')
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument(
