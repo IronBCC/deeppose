@@ -196,7 +196,10 @@ if __name__ == '__main__':
     if len(gpus) > 2:
         for gid in gpus[1:]:
             devices.update({'gpu{}'.format(gid): gid})
-    updater = training.ParallelUpdater(train_iter, opt, devices=devices)
+    if(gpus[0] > -1):
+        model = model.to_gpu(gpus[0])
+
+    updater = training.StandardUpdater(train_iter, opt, device=gpus[0])
 
     interval = (args.snapshot, 'epoch')
     trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=result_dir)

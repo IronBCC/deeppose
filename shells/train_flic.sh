@@ -2,11 +2,11 @@
 # Copyright (c) 2016 Shunta Saito
 
 CHAINER_TYPE_CHECK=0 \
-python scripts/train.py \
+python3 scripts/train.py \
 --model models/AlexNet.py \
---gpus -1 \
+--gpus 0 \
 --epoch 100 \
---batchsize 128 \
+--batchsize 64 \
 --snapshot 10 \
 --valid_freq 5 \
 --train_csv_fn data/FLIC-full/train_joints.csv \

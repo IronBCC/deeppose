@@ -54,6 +54,7 @@ class PoseDataset(dataset_mixin.DatasetMixin):
         self.info = []
         for line in csv.reader(open(self.csv_fn)):
             image_id = line[self.fname_index]
+            reshape = False
             if image_id in self.images:
                 image = self.images[image_id]
             else:
@@ -62,6 +63,8 @@ class PoseDataset(dataset_mixin.DatasetMixin):
                     'File not found: {}'.format(img_fn)
                 image = cv.imread(img_fn)
                 self.images[image_id] = image
+                reshape = True
+
 
             coords = [float(c) for c in line[self.joint_index:]]
             joints = np.array(list(zip(coords[0::2], coords[1::2])))
@@ -74,9 +77,19 @@ class PoseDataset(dataset_mixin.DatasetMixin):
             if bbox_w < self.min_dim or bbox_h < self.min_dim:
                 continue
 
-            self.joints.append((image_id, joints))
             center_x, center_y = self.calc_joint_center(available_joints)
+
+            if reshape:
+                image, joints = self.crop_reshape(
+                    image, joints, bbox_w, bbox_h, center_x, center_y)
+
+                bbox_w, bbox_h = self.calc_joint_bbox_size(joints)
+                center_x, center_y = self.calc_joint_center(joints)
+                self.images[image_id] = image
+
+
             self.info.append((ig, bbox_w, bbox_h, center_x, center_y))
+            self.joints.append((image_id, joints))
 
     def __len__(self):
         return len(self.joints)
@@ -172,8 +185,8 @@ class PoseDataset(dataset_mixin.DatasetMixin):
         if self.zoom:
             image, joints, cx, cy = self.apply_zoom(image, joints, cx, cy)
 
-        image, joints = self.crop_reshape(
-            image, joints, bbox_w, bbox_h, cx, cy)
+        # image, joints = self.crop_reshape(
+        #     image, joints, bbox_w, bbox_h, cx, cy)
 
         if self.fliplr and np.random.randint(0, 2) == 1:
             image, joints = self.apply_fliplr(image, joints)
