@@ -74,7 +74,7 @@ def revert(img, joints):
 
 def draw_joints(image, joints, ignore_joints):
     if image.shape[2] != 3:
-        _image = image.transpose(1, 2, 0).copy()
+        _image = image.transpose(1, 2, 0).astype(np.uint8).copy()
     else:
         _image = image.copy()
     # _image = image.copy()
@@ -131,7 +131,7 @@ def transformImage(image, resize=220):
         image = cv.resize(image, (resize, resize),
                           interpolation=cv.INTER_NEAREST)
     # return image
-    return image.transpose((2, 0, 1)) #.astype(np.float32)
+    return image.transpose((2, 0, 1)).astype(np.float32)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -161,13 +161,6 @@ if __name__ == '__main__':
         start = time.clock()
         # img, im_scale = img_preprocessing(orig_image, PIXEL_MEANS)
         img = transformImage(orig_image)
-
-        img = draw_joints(img, [], None)
-        cv.imshow('frame', img)
-        if cv.waitKey(1) & 0xFF == ord('q'):
-            break
-
-        continue
 
         transImg = img
         print("img_preprocessing = ", (time.clock() - start))
