@@ -26,15 +26,15 @@ PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
 
 
 def get_model(gpu, n_joins):
-    print "Model loading..."
+    print("Model loading...")
     model = AlexNet(n_joins)
     model = loss.PoseEstimationError(model)
 
     model.predictor.train = False
     model.train = False
-    serializers.load_npz('results/epoch-2.model', model)
+    serializers.load_npz('results/epoch-50.model', model)
     model = model.predictor
-    print "Model loaded."
+    print("Model loaded.")
     return model
 
 
@@ -56,12 +56,12 @@ def revert(img, joints):
     h, w, c = img.shape
     center_pt = np.array([w / 2, h / 2])
 
-    joints = np.array(zip(joints[0::2].data, joints[1::2].data))  # x,y order
-    joints[:, 0] *= w / 2
-    joints[:, 1] *= h / 2
+    joints = np.array(list(zip(joints.data[0::2], joints.data[1::2])))  # x,y order
+    # joints[:, 0] *= w / 2
+    # joints[:, 1] *= h / 2
     # joints *= w / 2
     # joints += h / 2
-    joints += center_pt
+    # joints += center_pt
     joints = joints.astype(np.int32)
 
     # if self.args.gcn:
@@ -130,8 +130,8 @@ def transformImage(image, resize=220):
     if (resize > 0):
         image = cv.resize(image, (resize, resize),
                           interpolation=cv.INTER_NEAREST)
-
-    return image.transpose((2, 0, 1)).astype(np.float32)
+    # return image
+    return image.transpose((2, 0, 1)) #.astype(np.float32)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -150,17 +150,27 @@ if __name__ == '__main__':
     cap = cv.VideoCapture(0)
     while (True):
         # Capture frame-by-frame
-        ret, frame = cap.read()
+        # ret, frame = cap.read()
 
         # Our operations on the frame come here
         # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-        orig_image = frame
+        # orig_image = cv.imread("results/test_img.jpg")
+        ret, orig_image = cap.read();
         start = time.clock()
         # img, im_scale = img_preprocessing(orig_image, PIXEL_MEANS)
         img = transformImage(orig_image)
-        print "img_preprocessing = ", (time.clock() - start)
+
+        img = draw_joints(img, [], None)
+        cv.imshow('frame', img)
+        if cv.waitKey(1) & 0xFF == ord('q'):
+            break
+
+        continue
+
+        transImg = img
+        print("img_preprocessing = ", (time.clock() - start))
 
         start = time.clock()
         img = np.expand_dims(img, axis=0)
@@ -169,20 +179,19 @@ if __name__ == '__main__':
 
         img = chainer.Variable(img, volatile=True)
         # h, w = img.data.shape[2:]
-        print "variable = ", (time.clock() - start)
-
+        print("variable = ", (time.clock() - start))
 
         start = time.clock()
         bbox_pred = model(img)
         bbox_pred = bbox_pred[0]
-        print "recognition = ", (time.clock() - start)
+        print("recognition = ", (time.clock() - start))
 
-        if args.gpu >= 0:
+        # if args.gpu >= 0:
             # cls_score = chainer.cuda.cupy.asnumpy(cls_score)
-            bbox_pred = chainer.cuda.cupy.asnumpy(bbox_pred)
+            # bbox_pred = chainer.cuda.cupy.cupyasnumpy(bbox_pred)
 
-        img, bbox_pred = revert(orig_image, bbox_pred)
-        result = draw_joints(orig_image, bbox_pred, None)
+        img, bbox_pred = revert(transImg, bbox_pred)
+        result = draw_joints(img, bbox_pred, None)
         # result = draw_result(orig_image, im_scale, cls_score, bbox_pred,
         #                      args.nms_thresh, args.conf)
         # print('%d (%d) found' % (len(found_filtered), len(found)))
