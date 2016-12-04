@@ -69,6 +69,7 @@ def get_model(model_path, n_joints, result_dir, resume_model):
 
     # Initialize
     model = model(n_joints)
+    model = loss.PoseEstimationError(model)
 
     # Copy files
     dst = '{}/{}'.format(result_dir, model_fn)
@@ -169,7 +170,7 @@ if __name__ == '__main__':
     result_dir = create_result_dir(args.model, args.resume_model)
     create_logger(args, result_dir)
     model = get_model(args.model, args.n_joints, result_dir, args.resume_model)
-    model = loss.PoseEstimationError(model)
+
     opt = get_optimizer(model, args.opt, args.lr, adam_alpha=args.adam_alpha,
                         adam_beta1=args.adam_beta1, adam_beta2=args.adam_beta2,
                         adam_eps=args.adam_eps, weight_decay=args.weight_decay,

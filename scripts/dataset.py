@@ -22,11 +22,11 @@ class PoseDataset(dataset_mixin.DatasetMixin):
     def __init__(self, csv_fn, img_dir, im_size, fliplr, rotate, rotate_range,
                  zoom, base_zoom, zoom_range, translate, translate_range,
                  min_dim, coord_normalize, gcn, joint_num, fname_index,
-                 joint_index, symmetric_joints, ignore_label):
+                 joint_index, symmetric_joints, ignore_label, limit = -1):
         for key, val in locals().items():
             setattr(self, key, val)
         self.symmetric_joints = json.loads(symmetric_joints)
-        self.load_images()
+        self.load_images(limit)
         logging.info('{} is ready'.format(csv_fn))
 
     def get_available_joints(self, joints, ignore_joints):
@@ -48,11 +48,13 @@ class PoseDataset(dataset_mixin.DatasetMixin):
         rb = np.max(joints, axis=0)
         return rb[0] - lt[0], rb[1] - lt[1]
 
-    def load_images(self):
+    def load_images(self, limit):
         self.images = {}
         self.joints = []
         self.info = []
         for line in csv.reader(open(self.csv_fn)):
+            if(limit > 0 and len(self.images) > limit):
+                break
             image_id = line[self.fname_index]
             reshape = False
             if image_id in self.images:
