@@ -12,9 +12,8 @@ import cv2 as cv
 import numpy as np
 import time
 
-import loss
+from scripts import loss, transform
 from results.AlexNet import AlexNet
-from transform import Transform
 
 CLASSES = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
