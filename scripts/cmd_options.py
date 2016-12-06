@@ -70,7 +70,7 @@ def get_arguments():
         '--zoom', action='store_true', default=False,
         help=('Randomly zoom out/in images for data augmentation'))
     parser.add_argument(
-        '--base_zoom', type=float, default=1.5,
+        '--base_zoom', type=float, default=1,
         help=('How big is the input image region comapred to bbox of joints'))
     parser.add_argument(
         '--zoom_range', type=float, default=0.2,
@@ -100,7 +100,7 @@ def get_arguments():
         '--joint_index', type=int, default=1,
         help='the start index of joint values in a csv line')
     parser.add_argument(
-        '--symmetric_joints', type=str, default='[[2, 4], [1, 5], [0, 6]]',
+        '--symmetric_joints', type=str, default=None,
         help='Symmetric joint ids in JSON format')
     # flic_swap_joints = [(2, 4), (1, 5), (0, 6)]
     # lsp_swap_joints = [(8, 9), (7, 10), (6, 11), (2, 3), (1, 4), (0, 5)]

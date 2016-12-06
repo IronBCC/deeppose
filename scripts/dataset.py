@@ -7,6 +7,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 from chainer.dataset import dataset_mixin
+
+from rx import Observable
+from rx.core import Scheduler
+
 from skimage import transform
 
 import csv
@@ -25,7 +29,9 @@ class PoseDataset(dataset_mixin.DatasetMixin):
                  joint_index, symmetric_joints, ignore_label, limit = -1):
         for key, val in locals().items():
             setattr(self, key, val)
-        self.symmetric_joints = json.loads(symmetric_joints)
+
+        if(symmetric_joints is not None):
+            self.symmetric_joints = json.loads(symmetric_joints)
         self.load_images(limit)
         logging.info('{} is ready'.format(csv_fn))
 
@@ -46,52 +52,72 @@ class PoseDataset(dataset_mixin.DatasetMixin):
     def calc_joint_bbox_size(self, joints):
         lt = np.min(joints, axis=0)
         rb = np.max(joints, axis=0)
-        return rb[0] - lt[0], rb[1] - lt[1]
+        lt_ = rb[0] - lt[0]
+        rb_ = rb[1] - lt[1]
+        lt_= 1 if  lt_ == 0 else lt_
+        rb_= 1 if  rb_ == 0 else rb_
+        return lt_, rb_
 
     def load_images(self, limit):
         self.images = {}
         self.joints = []
         self.info = []
-        for line in csv.reader(open(self.csv_fn)):
-            if(limit > 0 and len(self.images) > limit):
+
+        # Observable.from_(csv.reader(open(self.csv_fn)))\
+        #     .buffer_with_count(2000)\
+        #     .flat_map(
+        #         lambda data:
+        #             Observable.just(data, Scheduler.thread_pool)\
+        #                 .do_action(self.load_images_by_lines)
+        #     )\
+        #     .to_blocking()\
+        #     .subscribe()
+        self.load_images_by_lines(csv.reader(open(self.csv_fn)), limit)
+        print("Loaded images = " + str(len(self)))
+
+    def load_images_by_lines(self, lines, limit):
+        for line in lines:
+            if(limit == 0):
                 break
-            image_id = line[self.fname_index]
-            reshape = False
-            if image_id in self.images:
-                image = self.images[image_id]
-            else:
-                img_fn = '{}/{}'.format(self.img_dir, image_id)
-                assert os.path.exists(img_fn), \
-                    'File not found: {}'.format(img_fn)
-                image = cv.imread(img_fn)
-                self.images[image_id] = image
-                reshape = True
+            self.load_image_from_line(line)
+            limit -= 1
 
+    def load_image_from_line(self, line):
+        image_id = line[self.fname_index]
+        reshape = False
+        if image_id in self.images:
+            image = self.images[image_id]
+        else:
+            img_fn = '{}/{}'.format(self.img_dir, image_id)
+            assert os.path.exists(img_fn), \
+                'File not found: {}'.format(img_fn)
+            image = cv.imread(img_fn)
+            self.images[image_id] = image
+            reshape = True
 
-            coords = [float(c) for c in line[self.joint_index:]]
-            joints = np.array(list(zip(coords[0::2], coords[1::2])))
+        coords = [float(c) for c in line[self.joint_index:]]
+        joints = np.array(list(zip(coords[0::2], coords[1::2])))
 
-            # Ignore small label regions smaller than min_dim
-            ig = [0 if v == self.ignore_label else 1 for v in joints.flatten()]
-            ig = np.array(list(zip(ig[0::2], ig[1::2])))
-            available_joints = self.get_available_joints(joints, ig)
-            bbox_w, bbox_h = self.calc_joint_bbox_size(available_joints)
-            if bbox_w < self.min_dim or bbox_h < self.min_dim:
-                continue
+        # Ignore small label regions smaller than min_dim
+        ig = [0 if v == self.ignore_label else 1 for v in joints.flatten()]
+        ig = np.array(list(zip(ig[0::2], ig[1::2])))
+        available_joints = self.get_available_joints(joints, ig)
+        bbox_w, bbox_h = self.calc_joint_bbox_size(available_joints)
+        if bbox_w < self.min_dim or bbox_h < self.min_dim:
+            return
 
-            center_x, center_y = self.calc_joint_center(available_joints)
+        center_x, center_y = self.calc_joint_center(available_joints)
 
-            if reshape:
-                image, joints = self.crop_reshape(
-                    image, joints, bbox_w, bbox_h, center_x, center_y)
+        if reshape:
+            image, joints = self.crop_reshape(
+                image, joints, bbox_w, bbox_h, center_x, center_y)
 
-                bbox_w, bbox_h = self.calc_joint_bbox_size(joints)
-                center_x, center_y = self.calc_joint_center(joints)
-                self.images[image_id] = image
+            bbox_w, bbox_h = self.calc_joint_bbox_size(joints)
+            center_x, center_y = self.calc_joint_center(joints)
+            self.images[image_id] = image
 
-
-            self.info.append((ig, bbox_w, bbox_h, center_x, center_y))
-            self.joints.append((image_id, joints))
+        self.info.append((ig, bbox_w, bbox_h, center_x, center_y))
+        self.joints.append((image_id, joints))
 
     def __len__(self):
         return len(self.joints)
@@ -149,6 +175,8 @@ class PoseDataset(dataset_mixin.DatasetMixin):
         return image, np.array(joints.tolist())
 
     def crop_reshape(self, image, joints, bbox_w, bbox_h, center_x, center_y):
+        if(self.im_size == image.shape[0] and self.im_size == image.shape[1]):
+            return image, joints
         bbox_h, bbox_w = bbox_h * self.base_zoom, bbox_w * self.base_zoom
         y_min = int(np.clip(center_y - bbox_h / 2, 0, image.shape[0]))
         y_max = int(np.clip(center_y + bbox_h / 2, 0, image.shape[0]))

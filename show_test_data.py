@@ -21,18 +21,19 @@ import numpy as np
 import time
 
 import loss
+from results.ResNet50 import ResNet50
 from results.AlexNet import AlexNet
 from chainer import serializers
 from chainer.cuda import to_gpu
 
 def get_model(gpu, n_joins):
     print("Model loading...")
-    model = AlexNet(n_joins)
+    model = ResNet50(n_joins)
     model = loss.PoseEstimationError(model)
 
     model.predictor.train = False
     model.train = False
-    serializers.load_npz('results/epoch-220.model', model)
+    serializers.load_npz('results/epoch-8_resnet_points.model', model)
     model = model.predictor
     print("Model loaded.")
     return model

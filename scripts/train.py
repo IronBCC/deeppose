@@ -175,6 +175,15 @@ if __name__ == '__main__':
                         adam_beta1=args.adam_beta1, adam_beta2=args.adam_beta2,
                         adam_eps=args.adam_eps, weight_decay=args.weight_decay,
                         resume_opt=args.resume_opt)
+
+    gpus = [int(i) for i in args.gpus.split(',')]
+    devices = {'main': gpus[0]}
+    if len(gpus) > 2:
+        for gid in gpus[1:]:
+            devices.update({'gpu{}'.format(gid): gid})
+    if (gpus[0] > -1):
+        model = model.to_gpu(gpus[0])
+
     train_dataset = dataset.PoseDataset(
         args.train_csv_fn, args.img_dir, args.im_size, args.fliplr,
         args.rotate, args.rotate_range, args.zoom, args.base_zoom,
@@ -187,20 +196,14 @@ if __name__ == '__main__':
         args.rotate, args.rotate_range, args.zoom, args.base_zoom,
         args.zoom_range, args.translate, args.translate_range, args.min_dim,
         args.coord_normalize, args.gcn, args.n_joints, args.fname_index,
-        args.joint_index, args.symmetric_joints, args.ignore_label
+        args.joint_index, args.symmetric_joints, args.ignore_label, 1000
     )
 
     train_iter = iterators.MultiprocessIterator(train_dataset, args.batchsize)
     test_iter = iterators.MultiprocessIterator(
         test_dataset, args.batchsize, repeat=False, shuffle=False)
 
-    gpus = [int(i) for i in args.gpus.split(',')]
-    devices = {'main': gpus[0]}
-    if len(gpus) > 2:
-        for gid in gpus[1:]:
-            devices.update({'gpu{}'.format(gid): gid})
-    if(gpus[0] > -1):
-        model = model.to_gpu(gpus[0])
+
 
     updater = training.StandardUpdater(train_iter, opt, device=gpus[0])
 
