@@ -25,21 +25,22 @@ for i in range(number):
 
     img = np.zeros((height, width, channels), dtype=np.uint8)
     img[y][x][0] = 255
-    img[y][x][1] = 255
-    img[y][x][2] = 255
+    img[y][x][1] = x
+    img[y][x][2] = y
 
     img_name = "point"+str(i)+".png"
     scipy.misc.imsave("imgs/"+img_name, img)
     f.write(img_name + "," + str(x) + "," + str(y) + "\n")
 
-    img = np.zeros((height, width, channels), dtype=np.uint8)
-    img[y][x][0] = 255
-    img[y][x][1] = x
-    img[y][x][2] = y
+    img_rxy = np.zeros((height, width, channels), dtype=np.uint8)
+    for cy in range(img.shape[0]):
+        for cx in range(img.shape[1]):
+            img_rxy[cy][cx][1] = cx
+            img_rxy[cy][cx][2] = cy
+            img_rxy[y][x][0] = 255
 
-    img_name = "point_rxy_" + str(i) + ".png"
-    scipy.misc.imsave("imgs/" + img_name, img)
-
+    img_name = "point_RXY_" + str(i) + ".png"
+    scipy.misc.imsave("imgs/" + img_name, img_rxy)
 
 f.close()
 # Set the RGB values
