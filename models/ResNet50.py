@@ -92,7 +92,7 @@ class ResNet50(chainer.Chain):
         links += [('res3', Block(4, 256, 128, 512))]
         links += [('res4', Block(6, 512, 256, 1024))]
         links += [('res5', Block(3, 1024, 512, 2048))]
-        links += [('out_fc', L.Linear(None, n_joints * 2))]
+        links += [('out_fc', L.Linear(2048, n_joints * 2))]
         for link in links:
             self.add_link(*link)
 

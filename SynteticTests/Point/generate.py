@@ -20,13 +20,14 @@ xx, yy = np.mgrid[:height, :width]
 circle = (xx - 100) ** 2 + (yy - 100) ** 2
 
 f = open('points.csv', 'w')
+f2 = open('points2.csv', 'w')
 for i in range(number):
     x, y = random.randint(0, width-1), random.randint(0, height-1)
 
     img = np.zeros((height, width, channels), dtype=np.uint8)
     img[y][x][0] = 255
-    img[y][x][1] = x
-    img[y][x][2] = y
+    img[y][x][1] = 255
+    img[y][x][2] = 255
 
     img_name = "point"+str(i)+".png"
     scipy.misc.imsave("imgs/"+img_name, img)
@@ -37,12 +38,14 @@ for i in range(number):
         for cx in range(img.shape[1]):
             img_rxy[cy][cx][1] = cx
             img_rxy[cy][cx][2] = cy
-            img_rxy[y][x][0] = 255
+    img_rxy[y][x][0] = 255
 
-    img_name = "point_RXY_" + str(i) + ".png"
-    scipy.misc.imsave("imgs/" + img_name, img_rxy)
+    img_name = "point" + str(i) + ".png"
+    scipy.misc.imsave("imgs2/" + img_name, img_rxy)
+    f2.write(img_name + "," + str(x) + "," + str(y) + "\n")
 
 f.close()
+f2.close()
 # Set the RGB values
 # for y in range(img.shape[0]):
 #     for x in range(img.shape[1]):
