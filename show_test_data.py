@@ -26,18 +26,25 @@ from results.AlexNet import AlexNet
 from chainer import serializers
 from chainer.cuda import to_gpu
 
-def get_model(gpu, n_joins):
+def get_model(model_path, n_joints, resume_model):
     print("Model loading...")
-    model = ResNet50(n_joins)
+    model_fn = os.path.basename(model_path)
+    model_name = model_fn.split('.')[0]
+    model = imp.load_source(model_name, model_path)
+    model = getattr(model, model_name)
+
+    # Initialize
+    model = model(n_joints)
     model = loss.PoseEstimationError(model)
 
     model.predictor.train = False
     model.train = False
-    serializers.load_npz('results/epoch-8_resnet_points.model', model)
-    model = model.predictor
-    print("Model loaded.")
-    return model
 
+    serializers.load_npz(resume_model, model)
+
+    model = model.predictor
+    print("Model loading...")
+    return model
 
 def draw_joints(image, joints, ignore_joints):
     if image.shape[2] != 3:
@@ -66,7 +73,7 @@ def transformImage(image, resize=220):
 
 if __name__ == '__main__':
     args = cmd_options.get_arguments()
-    model = get_model(args.gpu, args.n_joints)
+    model = get_model(args.model, args.n_joints,  args.resume_model)
 
     train_dataset = dataset.PoseDataset(
         args.train_csv_fn, args.img_dir, args.im_size, args.fliplr,
